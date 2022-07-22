@@ -25,9 +25,36 @@
 
 #include<Windows.h>
 
+// some data for my window
+struct SomeData {
+	int a;
+	int b;
+};
+inline SomeData* GetAppState(HWND hwnd)
+{
+	LONG_PTR ptr = GetWindowLongPtr(hwnd, GWLP_USERDATA);
+	SomeData *pState = reinterpret_cast<SomeData*>(ptr);
+	return pState;
+}
+
 // The Callback Signature, The Procedure for This "hello World" Window.
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMessage, WPARAM wParam, LPARAM lParam)
 {
+	// Retrieve the Data associated whith the hwnd
+	SomeData *pState;
+	if (uMessage == WM_CREATE)
+	{
+		CREATESTRUCT *pCreate = reinterpret_cast<CREATESTRUCT*>(lParam);
+		pState = reinterpret_cast<SomeData*>(pCreate->lpCreateParams);
+		SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)pState);
+	}
+	else
+	{
+		pState = GetAppState(hwnd);
+	}
+
+
+
 		// Additional data for the message is contained in the lParam and wParam parameters. 
 		// Both parameters are integer values the size of a pointer width (32 bits or 64 bits).
 	switch (uMessage)
@@ -39,12 +66,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMessage, WPARAM wParam, LPARAM lPar
 		return 0;
 	case WM_PAINT:
 	{
-		PAINTSTRUCT paintStructure;
+		PAINTSTRUCT paintStructure;		// information abort the painting
 
 		// paint the Window
-		HDC hdc = BeginPaint(hwnd, &paintStructure);
+		BeginPaint(hwnd, &paintStructure);	// prepare the window to be paint and fill the paintStructure with the information about the painting
 
-		FillRect(hdc, &paintStructure.rcPaint, (HBRUSH)(COLOR_WINDOW + 1));
+		// If the function BeginPaint succeeds, the return value is the handle to a display device context for the specified window.
+
+		FillRect(paintStructure.hdc, &paintStructure.rcPaint, (HBRUSH)(COLOR_WINDOW + 1)); // test COLOR_DESKTOP
 		EndPaint(hwnd, &paintStructure);
 	}
 	return 0;
@@ -57,6 +86,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMessage, WPARAM wParam, LPARAM lPar
 	//	OnSize(hwnd, (UINT)wParam, width, height);
 	//}
 	//break;
+
+	case WM_CLOSE:
+		if (MessageBox(hwnd, L"Really quit?", L"My application", MB_OKCANCEL| MB_ICONWARNING) == IDOK)
+		{
+			DestroyWindow(hwnd);
+		}
+		// Else: User canceled. Do nothing.
+		return 0;
 	}
 
 	// use message default handler behavior for other messages
@@ -68,6 +105,13 @@ void OnSize(HWND hwnd, UINT flag, int width, int height)
 }
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPInstance, PWSTR pCmdLine, int nCmdShow)
 {
+	// initialize the Data
+	SomeData *pState = new SomeData;
+
+	if (pState == NULL)
+	{
+		return 0;
+	}
 
 	// Create, set a Window Class associate with my Window and register it with the opereratin System
 
@@ -94,7 +138,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPInstance, PWSTR pCmdLine, i
 		NULL,			// This Window has no parent.
 		NULL,			// no menu bar available yet
 		hInstance,
-		NULL
+		pState
 	);
 
 	// chech if the Window was create succefully
